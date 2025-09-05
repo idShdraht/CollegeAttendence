@@ -1,8 +1,7 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify
 from flask_cors import CORS
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
@@ -13,47 +12,45 @@ import os
 import re
 import requests
 
-print("J.A.R.V.I.S. Monarch Engine (Cloud Ready): Initializing...")
+print("J.A.R.V.I.S. Sentinel Engine: Initializing...")
 
 # --- Flask App Initialization ---
 app = Flask(__name__)
-app.secret_key = 'jarvis-secret-key-for-monarch'
+app.secret_key = 'jarvis-secret-key-for-sentinel'
 CORS(app, supports_credentials=True, origins=["*"]) 
 
 # --- Configuration ---
 AIMS_BASE_URL = "https://aims.rkmvc.ac.in"
-# A server-appropriate temporary path
-SESSION_FILE = "/tmp/session_monarch.json" 
+SESSION_FILE = "/tmp/session_sentinel.json" 
+# SIR, YOU MUST GET A FREE API KEY FROM BROWSERLESS.IO AND PASTE IT HERE
+BROWSERLESS_API_KEY = "PASTE_YOUR_BROWSERLESS_API_KEY_HERE"
 
 @app.errorhandler(500)
 def internal_server_error(e):
     traceback.print_exc()
     return jsonify(error="J.A.R.V.I.S. Core Systems Failure: A critical, unhandled error occurred."), 500
 
-def initialize_browser():
-    """Initializes a Selenium WebDriver instance for a cloud environment."""
-    global driver
-    if driver:
-        try: _ = driver.window_handles
-        except Exception: driver.quit(); driver = None
+def get_remote_browser():
+    """Connects to the Browserless.io remote fleet."""
+    if BROWSERLESS_API_KEY == "PASTE_YOUR_BROWSERLESS_API_KEY_HERE":
+        raise ValueError("Browserless.io API Key is not configured.")
     
-    if not driver:
-        print("J.A.R.V.I.S. LOG: Launching new HEADLESS Chrome instance for cloud.")
-        options = webdriver.ChromeOptions()
-        options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.add_argument("window-size=1200,800")
-        
-        # With a correctly built Docker container, explicit paths are not needed.
-        # Selenium will find the browser and driver in the system's PATH.
-        driver = webdriver.Chrome(options=options)
-        print("J.A.R.V.I.S. LOG: New Chrome instance launched successfully.")
+    print("J.A.R.V.I.S. LOG: Connecting to Sentinel browser fleet...")
+    options = webdriver.ChromeOptions()
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    
+    # This is the command to connect to the remote browser
+    endpoint = f'wss://chrome.browserless.io?token={BROWSERLESS_API_KEY}'
+    driver = webdriver.Remote(command_executor=endpoint, options=options)
+    print("J.A.R.V.I.S. LOG: Connection established.")
+    return driver
 
-# The rest of your Python code is correct and does not need to change.
-# For brevity, only the corrected function and final setup are shown.
-# ... (rest of the file is identical to the previous 'Ignition Patch' version)
+# The core logic of the application remains the same, but it now uses the remote browser.
+# All other functions (scrape_with_cookies, check_session, initiate_login, parsers) are identical
+# to the Chimera/Monarch versions, but with `driver` being a remote instance.
+# I am providing the full, corrected, and final code below.
+
 def scrape_with_cookies(session_data):
     """Scrapes all data points using a saved session."""
     print("J.A.R.V.I.S. LOG: Attempting silent multi-module data acquisition.")
@@ -98,15 +95,15 @@ def check_session():
 
 @app.route('/api/initiate-login', methods=['GET'])
 def initiate_login():
-    """Launches browser for a full manual login and captures the session key."""
+    """Uses the remote browser to guide the user through login."""
     driver = None
     try:
-        initialize_browser() # Call the corrected function
+        driver = get_remote_browser()
         
-        # This endpoint is a placeholder. The user must be directed to a separate
-        # utility for the one-time login, as a headless browser cannot be interacted with.
-        # The Chimera/Phoenix protocol (local generator, remote key) is the only viable path.
-        raise NotImplementedError("Direct server-side manual login is not feasible. Use the local key_generator script.")
+        # This endpoint is now a placeholder. The user must be directed to a separate
+        # utility for the one-time login, as a remote browser cannot be made visible to the user.
+        # The Phoenix protocol (local generator, remote key) remains the most robust solution.
+        raise NotImplementedError("This login flow requires a different architecture. Please use the Phoenix protocol.")
 
     except Exception as e:
         traceback.print_exc()
@@ -152,10 +149,10 @@ def parse_timetable_data(html_content):
         timetable["rows"].append(time_slot_data)
     return timetable
 
-print("J.A.R.V.I.S. Monarch Engine: All systems nominal. Engaging server.")
+print("J.A.R.V.I.S. Sentinel Engine: All systems nominal. Engaging server.")
 
-# --- IGNITION KEY ---
 application = app
+
 
 
 
