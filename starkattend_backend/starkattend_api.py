@@ -23,7 +23,7 @@ CORS(app, supports_credentials=True, origins=["*"])
 AIMS_BASE_URL = "https://aims.rkmvc.ac.in"
 SESSION_FILE = "/tmp/session_sentinel.json" 
 # SIR, YOU MUST GET A FREE API KEY FROM BROWSERLESS.IO AND PASTE IT HERE
-BROWSERLESS_API_KEY = "PASTE_YOUR_BROWSERLESS_API_KEY_HERE"
+BROWSERLESS_API_KEY = "2T04KUPWyHqoQsb254cabf9969a21ff868ac5eb097bc906c9"
 
 @app.errorhandler(500)
 def internal_server_error(e):
@@ -152,6 +152,7 @@ def parse_timetable_data(html_content):
 print("J.A.R.V.I.S. Sentinel Engine: All systems nominal. Engaging server.")
 
 application = app
+
 
 
 
