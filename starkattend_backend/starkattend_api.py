@@ -12,9 +12,9 @@ import traceback
 import json
 import os
 import re
-import requests # BUG FIX: Re-integrated the essential requests library.
+import requests
 
-print("J.A.R.V.I.S. Monarch Engine: Initializing...")
+print("J.A.R.V.I.S. Monarch Engine (Cloud Ready): Initializing...")
 
 # --- Flask App Initialization ---
 app = Flask(__name__)
@@ -23,7 +23,8 @@ CORS(app, supports_credentials=True, origins=["*"])
 
 # --- Configuration ---
 AIMS_BASE_URL = "https://aims.rkmvc.ac.in"
-SESSION_FILE = "session_monarch.json"
+# A server-appropriate temporary path
+SESSION_FILE = "/tmp/session_monarch.json" 
 
 @app.errorhandler(500)
 def internal_server_error(e):
@@ -77,56 +78,24 @@ def initiate_login():
     """Launches browser for a full manual login and captures the session key."""
     driver = None
     try:
-        print("J.A.R.V.I.S. LOG: Launching visible browser for manual human authentication.")
+        print("J.A.R.V.I.S. LOG: Launching HEADLESS browser for authentication.")
         options = webdriver.ChromeOptions()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
         options.add_argument("window-size=1200,800")
-        driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
         
-        driver.get(f"{AIMS_BASE_URL}/student/loginPage")
+        # Use the explicit path provided by the Dockerfile environment
+        options.binary_location = os.environ.get("GOOGLE_CHROME_BIN")
         
-        print("J.A.R.V.I.S. LOG: Ceding control to human operator. Awaiting successful login...")
+        service = ChromeService(executable_path=os.environ.get("CHROMEDRIVER_PATH"))
+        driver = webdriver.Chrome(service=service, options=options)
         
-        WebDriverWait(driver, 300).until(
-            EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Sign out')]"))
-        )
-        
-        print("J.A.R.V.I.S. LOG: Human authentication successful. Acquiring user identity and session key.")
-        
-        page_source = driver.page_source
-        roll_no_match = re.search(r'(\d{13,})', page_source)
-        if not roll_no_match:
-            welcome_match = re.search(r'Welcome,?\s*([A-Z\s.-]+)\(?,?\s*(\d+)', page_source, re.IGNORECASE)
-            if welcome_match:
-                roll_no = welcome_match.group(2)
-            else:
-                 raise ValueError("Could not automatically determine Roll Number from the dashboard.")
-        else:
-            roll_no = roll_no_match.group(1)
+        # This endpoint is a placeholder. The user must be directed to a separate
+        # utility for the one-time login, as a headless browser cannot be interacted with.
+        # The Chimera/Phoenix protocol (local generator, remote key) is the only viable path.
+        raise NotImplementedError("Direct server-side manual login is not feasible. Use the local key_generator script.")
 
-        print(f"J.A.R.V.I.S. LOG: User identity confirmed. Roll Number: {roll_no}")
-        
-        cookies = driver.get_cookies()
-        with open(SESSION_FILE, 'w') as f:
-            json.dump({'rollNo': roll_no, 'cookies': cookies}, f)
-        
-        print("J.A.R.V.I.S. LOG: Session key secured. Beginning multi-module data extraction.")
-        
-        driver.get(f"{AIMS_BASE_URL}/student/AttndReport")
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "table.table-bordered")))
-        attendance_html = driver.page_source
-
-        driver.get(f"{AIMS_BASE_URL}/student/timetable")
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "table.table-bordered")))
-        timetable_html = driver.page_source
-        
-        full_data = {
-            "attendanceData": parse_attendance_data(attendance_html, roll_no),
-            "timetableData": parse_timetable_data(timetable_html)
-        }
-        return jsonify(full_data)
-
-    except TimeoutException:
-        return jsonify({"error": "Manual login timed out."}), 408
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": f"A critical error occurred: {e}"}), 500
@@ -173,5 +142,6 @@ def parse_timetable_data(html_content):
 
 print("J.A.R.V.I.S. Monarch Engine: All systems nominal. Engaging server.")
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+# --- IGNITION KEY ---
+# This line makes the 'app' object visible to the Gunicorn server.
+application = app
