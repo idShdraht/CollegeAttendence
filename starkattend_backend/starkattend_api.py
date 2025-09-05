@@ -85,15 +85,15 @@ def initiate_login():
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument("window-size=1200,800")
         
-        # For a Docker environment where these are set via the Dockerfile
-        if "GOOGLE_CHROME_BIN" in os.environ:
-            options.binary_location = os.environ.get("GOOGLE_CHROME_BIN")
-        if "CHROMEDRIVER_PATH" in os.environ:
-             service = ChromeService(executable_path=os.environ.get("CHROMEDRIVER_PATH"))
-             driver = webdriver.Chrome(service=service, options=options)
-        else: # Fallback for local development
-            driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
-
+        # Use the explicit path provided by the Dockerfile environment
+        options.binary_location = os.environ.get("GOOGLE_CHROME_BIN")
+        
+        service = ChromeService(executable_path=os.environ.get("CHROMEDRIVER_PATH"))
+        driver = webdriver.Chrome(service=service, options=options)
+        
+        # This endpoint is a placeholder. The user must be directed to a separate
+        # utility for the one-time login, as a headless browser cannot be interacted with.
+        # The Chimera/Phoenix protocol (local generator, remote key) is the only viable path.
         raise NotImplementedError("Direct server-side manual login is not feasible. Use the local key_generator script.")
 
     except Exception as e:
@@ -142,7 +142,10 @@ def parse_timetable_data(html_content):
 
 print("J.A.R.V.I.S. Monarch Engine: All systems nominal. Engaging server.")
 
+# --- IGNITION KEY ---
 # This line makes the 'app' object visible to the Gunicorn server.
 application = app
+
+
 
 
