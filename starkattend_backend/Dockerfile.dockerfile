@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends
 
 # Install a specific, stable version of Google Chrome
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update && apt-get install -y google-chrome-stable
+RUN wget -q https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_124.0.6367.60-1_amd64.deb \
+    && apt-get install -y ./google-chrome-stable_124.0.6367.60-1_amd64.deb \
+    && rm google-chrome-stable_124.0.6367.60-1_amd64.deb
 
 # Install the corresponding version of ChromeDriver and move it to a standard PATH location
 RUN wget -q https://storage.googleapis.com/chrome-for-testing-public/124.0.6367.60/linux64/chromedriver-linux64.zip \
@@ -36,5 +36,6 @@ COPY . .
 # Expose the port Gunicorn will run on
 EXPOSE 10000
 
-# Run the application. Selenium will now find Chrome automatically.
+# Run the application. Gunicorn will start the 'application' object from the 'starkattend_api' file.
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "starkattend_api:application"]
+
