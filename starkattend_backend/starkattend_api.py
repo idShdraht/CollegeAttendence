@@ -6,7 +6,6 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import traceback
 import json
@@ -31,6 +30,30 @@ def internal_server_error(e):
     traceback.print_exc()
     return jsonify(error="J.A.R.V.I.S. Core Systems Failure: A critical, unhandled error occurred."), 500
 
+def initialize_browser():
+    """Initializes a Selenium WebDriver instance for a cloud environment."""
+    global driver
+    if driver:
+        try: _ = driver.window_handles
+        except Exception: driver.quit(); driver = None
+    
+    if not driver:
+        print("J.A.R.V.I.S. LOG: Launching new HEADLESS Chrome instance for cloud.")
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("window-size=1200,800")
+        
+        # With a correctly built Docker container, explicit paths are not needed.
+        # Selenium will find the browser and driver in the system's PATH.
+        driver = webdriver.Chrome(options=options)
+        print("J.A.R.V.I.S. LOG: New Chrome instance launched successfully.")
+
+# The rest of your Python code is correct and does not need to change.
+# For brevity, only the corrected function and final setup are shown.
+# ... (rest of the file is identical to the previous 'Ignition Patch' version)
 def scrape_with_cookies(session_data):
     """Scrapes all data points using a saved session."""
     print("J.A.R.V.I.S. LOG: Attempting silent multi-module data acquisition.")
@@ -78,18 +101,7 @@ def initiate_login():
     """Launches browser for a full manual login and captures the session key."""
     driver = None
     try:
-        print("J.A.R.V.I.S. LOG: Launching HEADLESS browser for authentication.")
-        options = webdriver.ChromeOptions()
-        options.add_argument('--headless')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument("window-size=1200,800")
-        
-        # Use the explicit path provided by the Dockerfile environment
-        options.binary_location = os.environ.get("GOOGLE_CHROME_BIN")
-        
-        service = ChromeService(executable_path=os.environ.get("CHROMEDRIVER_PATH"))
-        driver = webdriver.Chrome(service=service, options=options)
+        initialize_browser() # Call the corrected function
         
         # This endpoint is a placeholder. The user must be directed to a separate
         # utility for the one-time login, as a headless browser cannot be interacted with.
@@ -143,8 +155,8 @@ def parse_timetable_data(html_content):
 print("J.A.R.V.I.S. Monarch Engine: All systems nominal. Engaging server.")
 
 # --- IGNITION KEY ---
-# This line makes the 'app' object visible to the Gunicorn server.
 application = app
+
 
 
 
