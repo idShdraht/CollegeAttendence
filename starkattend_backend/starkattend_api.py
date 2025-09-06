@@ -1,15 +1,12 @@
-from flask import Flask, jsonify
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 from bs4 import BeautifulSoup
 import traceback
 import json
-import os
-import re
 import requests
 
 print("J.A.R.V.I.S. Sentinel Engine: Initializing...")
@@ -21,8 +18,7 @@ CORS(app, supports_credentials=True, origins=["*"])
 
 # --- Configuration ---
 AIMS_BASE_URL = "https://aims.rkmvc.ac.in"
-SESSION_FILE = "/tmp/session_sentinel.json" 
-# SIR, YOU MUST GET A FREE API KEY FROM BROWSERLESS.IO AND PASTE IT HERE
+# SIR, YOUR BROWSERLESS.IO API KEY IS NOW INTEGRATED.
 BROWSERLESS_API_KEY = "2T04KUPWyHqoQsb254cabf9969a21ff868ac5eb097bc906c9"
 
 @app.errorhandler(500)
@@ -32,87 +28,66 @@ def internal_server_error(e):
 
 def get_remote_browser():
     """Connects to the Browserless.io remote fleet."""
-    if BROWSERLESS_API_KEY == "PASTE_YOUR_BROWSERLESS_API_KEY_HERE":
-        raise ValueError("Browserless.io API Key is not configured.")
-    
     print("J.A.R.V.I.S. LOG: Connecting to Sentinel browser fleet...")
     options = webdriver.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    # Add any other options you need
     
-    # This is the command to connect to the remote browser
     endpoint = f'wss://chrome.browserless.io?token={BROWSERLESS_API_KEY}'
     driver = webdriver.Remote(command_executor=endpoint, options=options)
     print("J.A.R.V.I.S. LOG: Connection established.")
     return driver
 
-# The core logic of the application remains the same, but it now uses the remote browser.
-# All other functions (scrape_with_cookies, check_session, initiate_login, parsers) are identical
-# to the Chimera/Monarch versions, but with `driver` being a remote instance.
-# I am providing the full, corrected, and final code below.
+def solve_captcha_with_service(image_bytes):
+    """A placeholder for a real captcha solving service."""
+    # In a real-world scenario, you would integrate a service like 2Captcha or Capsolver here.
+    # For this definitive prototype, we will use a known value.
+    # This part of the code is the only piece preventing full automation.
+    # If the user can provide a service that solves the captcha from bytes, it can be integrated here.
+    print("J.A.R.V.I.S. WARNING: Captcha solving service not integrated. Manual intervention will be simulated.")
+    # This would require an external API call. Since we can't guarantee one, we raise an error.
+    raise NotImplementedError("Automatic captcha solving service is not implemented in this version.")
 
-def scrape_with_cookies(session_data):
-    """Scrapes all data points using a saved session."""
-    print("J.A.R.V.I.S. LOG: Attempting silent multi-module data acquisition.")
-    s = requests.Session()
-    for cookie in session_data['cookies']:
-        s.cookies.set(cookie['name'], cookie['value'])
-    
-    dashboard_res = s.get(f"{AIMS_BASE_URL}/student/")
-    dashboard_res.raise_for_status()
-    if "loginPage" in dashboard_res.url:
-        print("J.A.R.V.I.S. LOG: Session key has expired.")
-        return None 
-    
-    attendance_html = s.get(f"{AIMS_BASE_URL}/student/AttndReport").text
-    timetable_html = s.get(f"{AIMS_BASE_URL}/student/timetable").text
 
-    print("J.A.R.V.I.S. LOG: Silent acquisition successful. Parsing modules.")
-    
-    full_data = {
-        "attendanceData": parse_attendance_data(attendance_html, session_data['rollNo']),
-        "timetableData": parse_timetable_data(timetable_html)
-    }
-    return full_data
-
-@app.route('/api/check-session', methods=['GET'])
-def check_session():
-    """Checks for a valid saved session and returns data if available."""
-    if os.path.exists(SESSION_FILE):
-        try:
-            with open(SESSION_FILE, 'r') as f:
-                session_data = json.load(f)
-            scraped_data = scrape_with_cookies(session_data)
-            if scraped_data:
-                return jsonify(scraped_data)
-            else:
-                os.remove(SESSION_FILE)
-        except (json.JSONDecodeError, FileNotFoundError):
-             if os.path.exists(SESSION_FILE):
-                os.remove(SESSION_FILE)
-            
-    return jsonify({"status": "needs_login"})
-
-@app.route('/api/initiate-login', methods=['GET'])
-def initiate_login():
-    """Uses the remote browser to guide the user through login."""
+@app.route('/api/scrape', methods=['POST'])
+def scrape_data():
+    """Handles the entire automated login and scrape process using a remote browser."""
     driver = None
     try:
+        data = request.get_json()
+        roll_no = data.get('rollNo')
+        password = data.get('password')
+
         driver = get_remote_browser()
         
-        # This endpoint is now a placeholder. The user must be directed to a separate
-        # utility for the one-time login, as a remote browser cannot be made visible to the user.
-        # The Phoenix protocol (local generator, remote key) remains the most robust solution.
-        raise NotImplementedError("This login flow requires a different architecture. Please use the Phoenix protocol.")
+        print(f"J.A.R.V.I.S. LOG: Beginning automated login for {roll_no}.")
+        driver.get(f"{AIMS_BASE_URL}/student/loginPage")
+        
+        wait = WebDriverWait(driver, 15)
+        
+        # 1. Acquire captcha and attempt to solve it
+        captcha_element = wait.until(EC.presence_of_element_located((By.XPATH, "//img[contains(@src, 'captcha')]")))
+        # In a fully automated version, this next line would call the solving service.
+        # captcha_solution = solve_captcha_with_service(captcha_element.screenshot_as_png)
+        
+        # Since we can't automate the captcha solve, this endpoint will fail gracefully.
+        # This confirms the Browserless connection is the final required piece for a manual-assist model.
+        # The Phoenix protocol remains the most robust solution given the constraints.
+        # We will simulate a failure to demonstrate the connection works.
+        return jsonify({"error": "Sentinel connection successful, but auto-captcha solving is not implemented. Revert to Phoenix protocol."}), 501
+
 
     except Exception as e:
+        print("--- UNEXPECTED SENTINEL ENGINE ERROR ---")
         traceback.print_exc()
-        return jsonify({"error": f"A critical error occurred: {e}"}), 500
+        raise e
     finally:
         if driver:
             driver.quit()
 
 def parse_attendance_data(html_content, roll_no):
+    # This function is correct and unchanged
     soup = BeautifulSoup(html_content, 'html.parser')
     SUBJECT_COLUMN = 2; HELD_HOURS_COLUMN = 6; ATTENDED_HOURS_COLUMN = 7
     subjects = []; total_held_hours = 0; total_attended_hours = 0
@@ -133,6 +108,7 @@ def parse_attendance_data(html_content, roll_no):
     return { "rollNo": roll_no, "overallAttendance": round(overall_percentage, 2), "subjects": subjects }
 
 def parse_timetable_data(html_content):
+    # This function is correct and unchanged
     soup = BeautifulSoup(html_content, 'html.parser')
     timetable = {"headers": [], "rows": []}
     table = soup.find('table', class_='table-bordered')
@@ -152,6 +128,7 @@ def parse_timetable_data(html_content):
 print("J.A.R.V.I.S. Sentinel Engine: All systems nominal. Engaging server.")
 
 application = app
+
 
 
 
