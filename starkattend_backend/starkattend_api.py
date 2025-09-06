@@ -6,6 +6,7 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import traceback
 import json
@@ -13,7 +14,7 @@ import os
 import re
 import requests
 
-print("J.A.R.V.I.S. Monarch Engine (Cloud Ready): Initializing...")
+print("J.A.R.V.I.S. Monarch Engine: Initializing...")
 
 # --- Flask App Initialization ---
 app = Flask(__name__)
@@ -25,20 +26,29 @@ AIMS_BASE_URL = "https://aims.rkmvc.ac.in"
 # A server-appropriate temporary path
 SESSION_FILE = "/tmp/session_monarch.json" 
 
+# --- Global WebDriver Instance ---
+driver = None
+
 @app.errorhandler(500)
 def internal_server_error(e):
     traceback.print_exc()
     return jsonify(error="J.A.R.V.I.S. Core Systems Failure: A critical, unhandled error occurred."), 500
 
 def initialize_browser():
-    """Initializes a Selenium WebDriver instance for a cloud environment."""
+    """Initializes or restarts a Selenium WebDriver instance."""
+    # --- SYNTAX PATCH ---
+    # The 'global' declaration must be the first line of the function.
     global driver
+    
     if driver:
-        try: _ = driver.window_handles
-        except Exception: driver.quit(); driver = None
+        try:
+            _ = driver.window_handles
+        except Exception:
+            driver.quit()
+            driver = None
     
     if not driver:
-        print("J.A.R.V.I.S. LOG: Launching new HEADLESS Chrome instance for cloud.")
+        print("J.A.R.V.I.S. LOG: No active browser. Launching new HEADLESS Chrome instance...")
         options = webdriver.ChromeOptions()
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
@@ -46,16 +56,12 @@ def initialize_browser():
         options.add_argument("--disable-gpu")
         options.add_argument("window-size=1200,800")
         
-        # With a correctly built Docker container, explicit paths are not needed.
-        # Selenium will find the browser and driver in the system's PATH.
+        # In a correctly configured Docker environment on Render,
+        # Selenium will find Chrome and its driver automatically from the system PATH.
         driver = webdriver.Chrome(options=options)
         print("J.A.R.V.I.S. LOG: New Chrome instance launched successfully.")
 
-# The core logic of the application remains the same, but it now uses the remote browser.
-# All other functions (scrape_with_cookies, check_session, initiate_login, parsers) are identical
-# to the Chimera/Monarch versions, but with `driver` being a remote instance.
-# I am providing the full, corrected, and final code below.
-
+# --- The rest of your Python code is unchanged and correct ---
 def scrape_with_cookies(session_data):
     """Scrapes all data points using a saved session."""
     print("J.A.R.V.I.S. LOG: Attempting silent multi-module data acquisition.")
@@ -101,14 +107,13 @@ def check_session():
 @app.route('/api/initiate-login', methods=['GET'])
 def initiate_login():
     """Launches browser for a full manual login and captures the session key."""
-    driver = None
+    global driver
     try:
-        initialize_browser() # Call the corrected function
+        initialize_browser()
         
-        # This endpoint is a placeholder. The user must be directed to a separate
-        # utility for the one-time login, as a headless browser cannot be interacted with.
-        # The Phoenix protocol (local generator, remote key) is the only viable path.
-        raise NotImplementedError("Direct server-side manual login is not feasible. Use the local key_generator script.")
+        # This endpoint is a placeholder for a future protocol.
+        # The Phoenix protocol (local key generation) is the most robust solution.
+        raise NotImplementedError("Direct server-side manual login is not feasible with this host.")
 
     except Exception as e:
         traceback.print_exc()
@@ -116,6 +121,7 @@ def initiate_login():
     finally:
         if driver:
             driver.quit()
+            driver = None
 
 def parse_attendance_data(html_content, roll_no):
     soup = BeautifulSoup(html_content, 'html.parser')
@@ -156,7 +162,6 @@ def parse_timetable_data(html_content):
 
 print("J.A.R.V.I.S. Monarch Engine: All systems nominal. Engaging server.")
 
-# --- IGNITION KEY ---
 application = app
 
 
