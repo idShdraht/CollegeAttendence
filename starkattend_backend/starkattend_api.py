@@ -34,7 +34,7 @@ def internal_server_error(e):
     return jsonify(error="J.A.R.V.I.S. Core Systems Failure: A critical, unhandled error occurred."), 500
 
 def get_remote_browser():
-    """Connects to the Browserless.io remote fleet (HTTPS endpoint)."""
+    """Connects to the Browserless.io remote fleet (region-based HTTPS endpoint)."""
     print("J.A.R.V.I.S. LOG: Connecting to Sentinel browser fleet...")
     options = webdriver.ChromeOptions()
     options.add_argument("--no-sandbox")
@@ -42,8 +42,8 @@ def get_remote_browser():
     options.add_argument("--disable-gpu")
     options.add_argument("--headless=new")
 
-    # ✅ FIX: Use HTTPS, not WSS
-    endpoint = f'https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
+    # ✅ Use region-based endpoint instead of deprecated chrome.browserless.io
+    endpoint = f'https://production-sfo.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
 
     driver = webdriver.Remote(
         command_executor=endpoint,
@@ -51,6 +51,7 @@ def get_remote_browser():
     )
     print("J.A.R.V.I.S. LOG: Connection established.")
     return driver
+
 
 def preprocess_captcha(image_bytes, debug=DEFAULT_DEBUG):
     """Preprocesses image bytes for the AI model."""
@@ -227,6 +228,7 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
+
 
 
 
