@@ -1,9 +1,8 @@
 Flask
 Flask-Cors
-selenium
+selenium==4.15.0
 beautifulsoup4
 requests
 gunicorn
-opencv-python-headless
-numpy
-Pillow
+websocket-client
+
