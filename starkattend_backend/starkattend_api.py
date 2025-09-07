@@ -43,7 +43,7 @@ def get_remote_browser():
     options.add_argument("--headless=new")
 
     # ✅ Use region-specific endpoint (Singapore recommended for India)
-    endpoint = f'https://chrome-sg.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
+    endpoint = f'https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
 
     driver = webdriver.Remote(
         command_executor=endpoint,
@@ -227,6 +227,7 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
+
 
 
 
