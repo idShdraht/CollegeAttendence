@@ -43,7 +43,7 @@ def get_remote_browser():
     options.add_argument("--headless=new")
 
     # ✅ Use region-based endpoint instead of deprecated chrome.browserless.io
-    endpoint = f'https://production-sfo.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
+    endpoint = f'https://production-chi.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
 
     driver = webdriver.Remote(
         command_executor=endpoint,
@@ -228,6 +228,7 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
+
 
 
 
