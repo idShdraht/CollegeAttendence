@@ -1,4 +1,3 @@
-websocket-client
 Flask
 Flask-Cors
 selenium
@@ -8,4 +7,5 @@ gunicorn
 opencv-python-headless
 numpy
 Pillow
+
 
