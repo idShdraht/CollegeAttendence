@@ -44,17 +44,15 @@ def get_remote_browser():
     options.add_argument("--disable-gpu")
     options.add_argument("--headless=new")
 
-    # ✅ Updated production endpoint
-    endpoint = f'https://production-sfo.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
-
     # Accept insecure certificates (for Render SSL issues)
-    caps = DesiredCapabilities.CHROME.copy()
-    caps['acceptInsecureCerts'] = True
+    options.set_capability("acceptInsecureCerts", True)
+
+    # Updated production endpoint
+    endpoint = f'https://production-sfo.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
 
     driver = webdriver.Remote(
         command_executor=endpoint,
-        options=options,
-        desired_capabilities=caps
+        options=options
     )
 
     print("J.A.R.V.I.S. LOG: Connection established.")
@@ -235,6 +233,7 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
+
 
 
 
