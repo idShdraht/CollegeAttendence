@@ -42,8 +42,8 @@ def get_remote_browser():
     options.add_argument("--disable-gpu")
     options.add_argument("--headless=new")
 
-    # ✅ Use region-based endpoint instead of deprecated chrome.browserless.io
-    endpoint = f'https://production-chi.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
+    # ✅ Use region-specific endpoint (Singapore recommended for India)
+    endpoint = f'https://chrome-sg.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
 
     driver = webdriver.Remote(
         command_executor=endpoint,
@@ -51,7 +51,6 @@ def get_remote_browser():
     )
     print("J.A.R.V.I.S. LOG: Connection established.")
     return driver
-
 
 def preprocess_captcha(image_bytes, debug=DEFAULT_DEBUG):
     """Preprocesses image bytes for the AI model."""
@@ -228,6 +227,7 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
+
 
 
 
