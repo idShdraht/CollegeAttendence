@@ -40,3 +40,4 @@ EXPOSE 10000
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "starkattend_api:application"]
 
 
+
