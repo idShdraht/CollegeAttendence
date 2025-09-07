@@ -39,3 +39,4 @@ EXPOSE 10000
 # Run the application. Gunicorn will start the 'application' object from the 'starkattend_api' file.
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "starkattend_api:application"]
 
+
