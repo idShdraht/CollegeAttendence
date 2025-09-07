@@ -16,6 +16,7 @@ from PIL import Image
 from io import BytesIO
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from selenium.webdriver.chrome.service import Service
 # ---------- CONFIG ----------
 AIMS_BASE_URL = "https://aims.rkmvc.ac.in"
 BROWSERLESS_API_KEY = "2T04KUPWyHqoQsb254cabf9969a21ff868ac5eb097bc906c9"
@@ -35,21 +36,22 @@ def internal_server_error(e):
     return jsonify(error="J.A.R.V.I.S. Core Systems Failure: A critical, unhandled error occurred."), 500
 
 def get_remote_browser():
-    """Connects to Browserless.io remote fleet (production endpoint)."""
+    """Connects to Browserless.io remote fleet (WSS endpoint)."""
     print("J.A.R.V.I.S. LOG: Connecting to Sentinel browser fleet...")
 
+    # Chrome options
     options = webdriver.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--headless=new")
+    options.add_argument("--ignore-certificate-errors")
+    options.add_argument("--allow-insecure-localhost")
 
-    # Accept insecure certificates (for Render SSL issues)
-    options.set_capability("acceptInsecureCerts", True)
+    # WSS endpoint for full Selenium support
+    endpoint = f"wss://chrome.browserless.io?token={BROWSERLESS_API_KEY}"
 
-    # Updated production endpoint
-    endpoint = f'https://production-sfo.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
-
+    # Create remote driver
     driver = webdriver.Remote(
         command_executor=endpoint,
         options=options
@@ -233,6 +235,7 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
+
 
 
 
