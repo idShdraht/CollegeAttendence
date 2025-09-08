@@ -4,19 +4,20 @@ Flask-Cors==4.0.0
 gunicorn==21.2.0
 python-dotenv==1.0.1
 
-Web Scraping
+#Web Scraping
 selenium==4.15.0
 beautifulsoup4==4.12.2
 
-Image Processing and AI
+#Image Processing and AI
 huggingface_hub==0.22.2
 opencv-python-headless==4.9.0.80  # Headless version for servers
 numpy==1.26.2
 Pillow==10.1.0
 
-HTTP Requests
+#HTTP Requests
 requests==2.31.0
 urllib3==2.2.1
+
 
 
 
