@@ -27,7 +27,14 @@ print("J.A.R.V.I.S. Sentinel Engine: Initializing...")
 
 app = Flask(__name__)
 app.secret_key = 'jarvis-secret-key-for-sentinel'
-CORS(app, supports_credentials=True, origins=["*"])
+
+# --- DEFINITIVE CORS CONFIGURATION ---
+# This explicitly tells the server to trust your live frontend application.
+origins = [
+    "https://astounding-creponne-c164b9.netlify.app",
+    "http://localhost:3000", # For any future local testing
+]
+CORS(app, supports_credentials=True, origins=origins)
 
 @app.errorhandler(500)
 def internal_server_error(e):
@@ -40,8 +47,9 @@ def get_remote_browser():
     options = webdriver.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--headless=new")
     
-    endpoint = f'wss://chrome.browserless.io?token={BROWSERLESS_API_KEY}'
+    endpoint = f'https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
     driver = webdriver.Remote(command_executor=endpoint, options=options)
     print("J.A.R.V.I.S. LOG: Connection established.")
     return driver
@@ -58,22 +66,10 @@ def preprocess_captcha(image_bytes, debug=DEFAULT_DEBUG):
     pil_img = Image.fromarray(thresh)
     buf = BytesIO()
     pil_img.save(buf, format="PNG")
-    processed_bytes = buf.getvalue()
-
-    # Debug saving is unlikely to work in a read-only server environment like Render
-    # but the logic is harmless.
-    if debug and os.access('.', os.W_OK):
-        try:
-            pil_img.save("debug_captcha.png")
-            print("J.A.R.V.I.S. DEBUG: Preprocessed captcha saved as debug_captcha.png")
-        except Exception:
-            pass
-
-    return processed_bytes
+    return buf.getvalue()
 
 def solve_captcha_with_service(image_bytes, debug=DEFAULT_DEBUG):
     """Sends a preprocessed captcha to a Hugging Face model for solving."""
-    print("J.A.R.V.I.S. LOG: Preprocessing captcha image...")
     processed_bytes = preprocess_captcha(image_bytes, debug=debug)
     image_b64 = base64.b64encode(processed_bytes).decode("utf-8")
 
@@ -88,39 +84,31 @@ def solve_captcha_with_service(image_bytes, debug=DEFAULT_DEBUG):
         result = resp.json()
         
         captcha_text = (result.get("choices")[0].get("message").get("content")).strip()
-
         if not captcha_text:
             raise RuntimeError(f"Could not parse LLM response for captcha. Full response: {result}")
 
         captcha_text = captcha_text.splitlines()[0].strip()
         print(f"J.A.R.V.I.S. LOG: Captcha solved as '{captcha_text}'")
         return captcha_text
-
     except Exception as e:
-        print("J.A.R.V.I.S. ERROR: Failed to solve captcha with LLM.")
         traceback.print_exc()
         raise RuntimeError("Captcha solving with LLM failed.") from e
 
 def js_set_value_and_dispatch(driver, element, value):
     """Sets an element's value via JS to mimic user input."""
-    set_value_script = "(el, val) => { el.focus(); el.value = val; el.dispatchEvent(new Event('input', { bubbles: true})); el.dispatchEvent(new Event('change', { bubbles: true})); }"
-    driver.execute_script(set_value_script, element, value)
+    script = "(el, val) => { el.focus(); el.value = val; el.dispatchEvent(new Event('input', { bubbles: true})); el.dispatchEvent(new Event('change', { bubbles: true})); }"
+    driver.execute_script(script, element, value)
 
 @app.route('/api/scrape', methods=['POST'])
 def scrape_data():
-    """Main endpoint for the automated scraping process."""
     driver = None
     try:
         payload = request.get_json(force=True)
-        roll_no = payload.get('rollNo')
-        password = payload.get('password')
-        debug = payload.get('debug', DEFAULT_DEBUG)
-
+        roll_no, password = payload.get('rollNo'), payload.get('password')
         if not roll_no or not password:
             return jsonify({"error": "rollNo and password are required."}), 400
 
         driver = get_remote_browser()
-        print(f"J.A.R.V.I.S. LOG: Beginning automated login for {roll_no}.")
         driver.get(f"{AIMS_BASE_URL}/student/loginPage")
         wait = WebDriverWait(driver, 20)
 
@@ -131,8 +119,7 @@ def scrape_data():
         js_set_value_and_dispatch(driver, student_no_el, roll_no)
         js_set_value_and_dispatch(driver, password_el, password)
         
-        image_bytes = captcha_el.screenshot_as_png
-        captcha_solution = solve_captcha_with_service(image_bytes, debug=debug)
+        captcha_solution = solve_captcha_with_service(captcha_el.screenshot_as_png())
         
         captcha_input_el = driver.find_element(By.NAME, 'captcha')
         js_set_value_and_dispatch(driver, captcha_input_el, captcha_solution)
@@ -150,14 +137,12 @@ def scrape_data():
         WebDriverWait(driver, 12).until(EC.presence_of_element_located((By.CSS_SELECTOR, "table.table-bordered")))
         timetable_html = driver.page_source
 
-        full_data = {
+        return jsonify({
             "attendanceData": parse_attendance_data(attendance_html, roll_no),
             "timetableData": parse_timetable_data(timetable_html)
-        }
-        return jsonify(full_data)
+        })
 
     except Exception as e:
-        print("--- UNEXPECTED SENTINEL ENGINE ERROR ---")
         traceback.print_exc()
         return jsonify({"error": "An unexpected error occurred on the backend.", "detail": str(e)}), 500
     finally:
@@ -195,6 +180,8 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
+
+
 
 
 
