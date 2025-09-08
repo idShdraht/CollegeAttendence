@@ -1,37 +1,9 @@
-#from flask import Flask, request, jsonify
-#from flask_cors import CORS
-#from selenium import webdriver
-#from selenium.webdriver.common.by import By
-#from selenium.webdriver.support.ui import WebDriverWait
-#from selenium.webdriver.support import expected_conditions as EC
-#from bs4 import BeautifulSoup
-#import traceback
-#import json
-#import requests
-#import os
-#import time
-#import base64
-#import cv2
-#import numpy as np
-#from PIL import Image
-#from io import BytesIO
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from bs4 import BeautifulSoup
 import traceback
 import json
 import requests
 import os
-import time
-import base64
-import cv2
-import numpy as np
-from PIL import Image
-from io import BytesIO
 
 # ---------- CONFIG ----------
 AIMS_BASE_URL = "https://aims.rkmvc.ac.in"
@@ -51,6 +23,11 @@ CORS(app, supports_credentials=True, origins=[
     "http://localhost:3000"
 ])
 
+# --- Health check route ---
+@app.route("/", methods=["GET"])
+def health_check():
+    return jsonify(status="online", message="J.A.R.V.I.S. Engine is running 🚀"), 200
+
 @app.errorhandler(500)
 def internal_server_error(e):
     traceback.print_exc()
@@ -59,25 +36,24 @@ def internal_server_error(e):
 # ---------- Browserless Remote Driver ----------
 def get_remote_browser():
     """Connects to the Browserless.io remote fleet (HTTPS endpoint)."""
-    if not BROWSERLESS_API_KEY:
-        raise ValueError("Browserless.io API Key is not configured on the server.")
-    
-    print("J.A.R.V.I.S. LOG: Connecting to Sentinel browser fleet...")
+    from selenium import webdriver  # lazy import
     options = webdriver.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--headless=new")
 
-    # ✅ Use HTTPS endpoint (not WSS)
     endpoint = f'https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
-
     driver = webdriver.Remote(command_executor=endpoint, options=options)
-    print("J.A.R.V.I.S. LOG: Connection established.")
+    print("J.A.R.V.I.S. LOG: Browser connection established.")
     return driver
 
 # ---------- Captcha Handling ----------
 def preprocess_captcha(image_bytes, debug=DEFAULT_DEBUG):
+    import numpy as np, cv2
+    from PIL import Image
+    from io import BytesIO
+
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is None:
@@ -85,6 +61,7 @@ def preprocess_captcha(image_bytes, debug=DEFAULT_DEBUG):
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
     pil_img = Image.fromarray(thresh)
     buf = BytesIO()
     pil_img.save(buf, format="PNG")
@@ -109,21 +86,13 @@ def solve_captcha_with_service(image_bytes, debug=DEFAULT_DEBUG):
     }
     headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
 
-    print("J.A.R.V.I.S. LOG: Sending captcha to LLM via Hugging Face inference...")
     try:
         resp = requests.post("https://api-inference.huggingface.co/v1/chat/completions",
                              headers=headers, data=json.dumps(payload), timeout=30)
         resp.raise_for_status()
         result = resp.json()
-
         captcha_text = (result.get("choices")[0].get("message").get("content")).strip()
-        if not captcha_text:
-            raise RuntimeError(f"Could not parse LLM response for captcha. Full response: {result}")
-
-        captcha_text = captcha_text.splitlines()[0].strip()
-        print(f"J.A.R.V.I.S. LOG: Captcha solved as '{captcha_text}'")
-        return captcha_text
-
+        return captcha_text.splitlines()[0].strip()
     except Exception as e:
         traceback.print_exc()
         raise RuntimeError("Captcha solving with LLM failed.") from e
@@ -138,6 +107,12 @@ def js_set_value_and_dispatch(driver, element, value):
 def scrape_data():
     driver = None
     try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        from bs4 import BeautifulSoup
+        import base64
+
         payload = request.get_json(force=True)
         roll_no, password = payload.get('rollNo'), payload.get('password')
         if not roll_no or not password:
@@ -155,15 +130,12 @@ def scrape_data():
         js_set_value_and_dispatch(driver, password_el, password)
 
         captcha_solution = solve_captcha_with_service(captcha_el.screenshot_as_png())
-
         captcha_input_el = driver.find_element(By.NAME, 'captcha')
         js_set_value_and_dispatch(driver, captcha_input_el, captcha_solution)
 
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
-
         WebDriverWait(driver, 12).until(EC.url_contains("dashboard"))
 
-        print("J.A.R.V.I.S. LOG: Login successful; extracting data.")
         driver.get(f"{AIMS_BASE_URL}/student/AttndReport")
         WebDriverWait(driver, 12).until(EC.presence_of_element_located((By.CSS_SELECTOR, "table.table-bordered")))
         attendance_html = driver.page_source
@@ -179,7 +151,7 @@ def scrape_data():
 
     except Exception as e:
         traceback.print_exc()
-        return jsonify({"error": "An unexpected error occurred on the backend.", "detail": str(e)}), 500
+        return jsonify({"error": "Backend error", "detail": str(e)}), 500
     finally:
         if driver:
             try: driver.quit()
@@ -187,6 +159,7 @@ def scrape_data():
 
 # ---------- Parsers ----------
 def parse_attendance_data(html_content, roll_no):
+    from bs4 import BeautifulSoup
     soup = BeautifulSoup(html_content, 'html.parser')
     subjects = []
     total_held_hours, total_attended_hours = 0, 0
@@ -208,6 +181,7 @@ def parse_attendance_data(html_content, roll_no):
     return {"rollNo": roll_no, "overallAttendance": round(percent, 2), "subjects": subjects}
 
 def parse_timetable_data(html_content):
+    from bs4 import BeautifulSoup
     soup = BeautifulSoup(html_content, 'html.parser')
     timetable = {"headers": [], "rows": []}
     table = soup.find('table', class_='table-bordered')
@@ -225,7 +199,7 @@ def parse_timetable_data(html_content):
 application = app  # for Gunicorn on Render
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # Render requires binding to PORT
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
 
