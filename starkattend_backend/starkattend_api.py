@@ -1,3 +1,20 @@
+#from flask import Flask, request, jsonify
+#from flask_cors import CORS
+#from selenium import webdriver
+#from selenium.webdriver.common.by import By
+#from selenium.webdriver.support.ui import WebDriverWait
+#from selenium.webdriver.support import expected_conditions as EC
+#from bs4 import BeautifulSoup
+#import traceback
+#import json
+#import requests
+#import os
+#import time
+#import base64
+#import cv2
+#import numpy as np
+#from PIL import Image
+#from io import BytesIO
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from selenium import webdriver
@@ -9,7 +26,6 @@ import traceback
 import json
 import requests
 import os
-import time
 import base64
 import cv2
 import numpy as np
@@ -18,9 +34,11 @@ from io import BytesIO
 
 # ---------- CONFIG ----------
 AIMS_BASE_URL = "https://aims.rkmvc.ac.in"
-# --- SECURITY UPGRADE: Keys are now read from the server's secure environment ---
+
+# ✅ Read keys from Render environment (securely)
 BROWSERLESS_API_KEY = os.environ.get("BROWSERLESS_API_KEY")
 HF_API_KEY = os.environ.get("HF_API_KEY")
+
 DEFAULT_DEBUG = True
 # ----------------------------
 
@@ -28,6 +46,8 @@ print("J.A.R.V.I.S. Sentinel Engine: Initializing...")
 
 app = Flask(__name__)
 app.secret_key = 'jarvis-secret-key-for-sentinel'
+
+# ✅ Allow frontend (Netlify) to talk to backend (Render) safely
 CORS(app, supports_credentials=True, origins=["*"])
 
 @app.errorhandler(500)
@@ -35,18 +55,25 @@ def internal_server_error(e):
     traceback.print_exc()
     return jsonify(error="J.A.R.V.I.S. Core Systems Failure: A critical, unhandled error occurred."), 500
 
+# ✅ FIXED: Use HTTPS endpoint for Browserless, not WSS
 def get_remote_browser():
-    """Connects to the Browserless.io remote fleet."""
+    """Connects to the Browserless.io remote fleet (HTTPS WebDriver endpoint)."""
     if not BROWSERLESS_API_KEY:
         raise ValueError("Browserless.io API Key is not configured on the server.")
-    
+
     print("J.A.R.V.I.S. LOG: Connecting to Sentinel browser fleet...")
+
     options = webdriver.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    
-    endpoint = f'wss://chrome.browserless.io?token={BROWSERLESS_API_KEY}'
+    options.add_argument("--disable-gpu")
+    options.add_argument("--headless=new")
+
+    endpoint = f"https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}"
+
+    # ✅ Modern Selenium only needs `options`
     driver = webdriver.Remote(command_executor=endpoint, options=options)
+
     print("J.A.R.V.I.S. LOG: Connection established.")
     return driver
 
@@ -182,6 +209,7 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
+
 
 
 
