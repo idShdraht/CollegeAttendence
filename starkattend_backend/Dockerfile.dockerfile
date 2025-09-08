@@ -1,36 +1,25 @@
 FROM python:3.12-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies required by OpenCV, Pillow, Selenium, and Chrome
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libnss3 \
-    libgconf-2-4 \
-    libxss1 \
-    libasound2 \
-    fonts-liberation \
-    libu2f-udev \
-    wget \
-    unzip \
-    --no-install-recommends && rm -rf /var/lib/apt/lists/*
+# Install critical system dependencies required for OpenCV to function
+RUN apt-get update && apt-get install -y libgl1-mesa-glx libglib2.0-0 --no-install-recommends
 
-# Copy dependency list
+# Copy the component manifest
 COPY requirements.txt .
 
-# Install Python dependencies
+# Install all required Python libraries, including the AI and image processing components
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project files
+# Copy your definitive engine schematic
 COPY . .
 
-# Expose the app port
+# Expose the port the engine will run on
 EXPOSE 10000
 
-# Run the app with Gunicorn
-CMD ["gunicorn", "--workers=4", "--threads=4", "--timeout=120", "--bind", "0.0.0.0:10000", "app:application"]
+# The definitive ignition sequence for your engine
+CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:application"]
+
 
 
 
