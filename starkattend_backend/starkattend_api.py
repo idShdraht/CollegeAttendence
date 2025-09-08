@@ -17,7 +17,7 @@ import base64
 # ---------- CONFIG ----------
 AIMS_BASE_URL = "https://aims.rkmvc.ac.in"
 BROWSERLESS_API_KEY = "2T04KUPWyHqoQsb254cabf9969a21ff868ac5eb097bc906c9"
-HF_API_KEY = "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"
+HF_API_KEY = "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"
 DEFAULT_DEBUG = True
 # ----------------------------
 
@@ -240,6 +240,7 @@ def parse_timetable_data(html_content):
 
 # Entry point for Render
 application = app
+
 
 
 
