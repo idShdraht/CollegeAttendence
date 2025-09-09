@@ -1,10 +1,20 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from bs4 import BeautifulSoup
 import traceback
 import json
 import requests
 import os
-
+import time
+import base64
+import cv2
+import numpy as np
+from PIL import Image
+from io import BytesIO
 # ---------- CONFIG ----------
 AIMS_BASE_URL = "https://aims.rkmvc.ac.in"
 BROWSERLESS_API_KEY = os.environ.get("BROWSERLESS_API_KEY")
@@ -18,11 +28,12 @@ app = Flask(__name__)
 app.secret_key = 'jarvis-secret-key-for-sentinel'
 
 # --- CORS (allow frontend + localhost for dev) ---
-
-CORS(app, supports_credentials=True, origins=[
-    "https://starkattend.netlify.app",  # ✅ your live frontend
-    "http://localhost:3000"             # ✅ dev
-])
+CORS(app, resources={
+    r"/api/*": {"origins": [
+        "https://starkattend.netlify.app",   # ✅ your real Netlify frontend
+        "http://localhost:3000"              # ✅ keep for local dev
+    ]}
+})
 
 # --- Health check route ---
 @app.route("/", methods=["GET"])
@@ -36,17 +47,18 @@ def internal_server_error(e):
 
 # ---------- Browserless Remote Driver ----------
 def get_remote_browser():
-    """Connects to the Browserless.io remote fleet (HTTPS endpoint)."""
-    from selenium import webdriver  # lazy import
     options = webdriver.ChromeOptions()
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
     options.add_argument("--headless=new")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
 
-    endpoint = f'https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
-    driver = webdriver.Remote(command_executor=endpoint, options=options)
-    print("J.A.R.V.I.S. LOG: Browser connection established.")
+    # ✅ Updated WebSocket endpoint for Selenium
+    endpoint = f"wss://production-sfo.browserless.io?token={BROWSERLESS_API_KEY}"
+
+    driver = webdriver.Remote(
+        command_executor=endpoint,
+        options=options
+    )
     return driver
 
 # ---------- Captcha Handling ----------
@@ -202,6 +214,7 @@ application = app  # for Gunicorn on Render
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
