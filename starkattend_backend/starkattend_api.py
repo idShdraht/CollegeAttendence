@@ -18,9 +18,10 @@ app = Flask(__name__)
 app.secret_key = 'jarvis-secret-key-for-sentinel'
 
 # --- CORS (allow frontend + localhost for dev) ---
+
 CORS(app, supports_credentials=True, origins=[
-    "https://astounding-creponne-c164b9.netlify.app",
-    "http://localhost:3000"
+    "https://starkattend.netlify.app",  # ✅ your live frontend
+    "http://localhost:3000"             # ✅ dev
 ])
 
 # --- Health check route ---
@@ -201,6 +202,7 @@ application = app  # for Gunicorn on Render
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
