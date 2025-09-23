@@ -30,36 +30,30 @@ app.secret_key = 'jarvis-secret-key-for-sentinel'
 
 # --- DEFINITIVE CORS CONFIGURATION ---
 # This explicitly tells the server to trust your live frontend application.
-CORS(app, resources={
-    r"/api/*": {"origins": "https://astounding-creponne-c164b9.netlify.app"}
-})
+origins = [
+    "https://astounding-creponne-c164b9.netlify.app",
+    "http://localhost:3000", # For any future local testing
+]
+CORS(app, supports_credentials=True, origins=origins)
 
 @app.errorhandler(500)
 def internal_server_error(e):
     traceback.print_exc()
     return jsonify(error="J.A.R.V.I.S. Core Systems Failure: A critical, unhandled error occurred."), 500
 
-@app.route("/", methods=["GET"])
-def home():
-    return jsonify({"message": "J.A.R.V.I.S. Engine is running 🚀", "status": "online"})
-    
-# --- The rest of your code is unchanged and correct ---
-
 def get_remote_browser():
-    """Connects to the Browserless.io remote fleet (HTTPS endpoint)."""
+    """Connects to the Browserless.io remote fleet."""
+    if not BROWSERLESS_API_KEY:
+        raise ValueError("Browserless.io API Key is not configured on the server.")
+    
     print("J.A.R.V.I.S. LOG: Connecting to Sentinel browser fleet...")
     options = webdriver.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
     options.add_argument("--headless=new")
-
+    
     endpoint = f'https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
-
-    driver = webdriver.Remote(
-        command_executor=endpoint,
-        options=options
-    )
+    driver = webdriver.Remote(command_executor=endpoint, options=options)
     print("J.A.R.V.I.S. LOG: Connection established.")
     return driver
 
@@ -75,16 +69,7 @@ def preprocess_captcha(image_bytes, debug=DEFAULT_DEBUG):
     pil_img = Image.fromarray(thresh)
     buf = BytesIO()
     pil_img.save(buf, format="PNG")
-    processed_bytes = buf.getvalue()
-
-    if debug and os.access('.', os.W_OK):
-        try:
-            pil_img.save("debug_captcha.png")
-            print("J.A.R.V.I.S. DEBUG: Preprocessed captcha saved as debug_captcha.png")
-        except Exception:
-            pass
-
-    return processed_bytes
+    return buf.getvalue()
 
 def solve_captcha_with_service(image_bytes, debug=DEFAULT_DEBUG):
     """Sends a preprocessed captcha to a Hugging Face model for solving."""
@@ -111,7 +96,6 @@ def solve_captcha_with_service(image_bytes, debug=DEFAULT_DEBUG):
         captcha_text = captcha_text.splitlines()[0].strip()
         print(f"J.A.R.V.I.S. LOG: Captcha solved as '{captcha_text}'")
         return captcha_text
-
     except Exception as e:
         traceback.print_exc()
         raise RuntimeError("Captcha solving with LLM failed.") from e
@@ -202,7 +186,7 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
-
+ 
 
 
 
