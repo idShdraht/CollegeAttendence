@@ -18,6 +18,7 @@ from io import BytesIO
 
 # ---------- CONFIG ----------
 AIMS_BASE_URL = "https://aims.rkmvc.ac.in"
+# --- SECURITY UPGRADE: Keys are now read from the server's secure environment ---
 BROWSERLESS_API_KEY = os.environ.get("BROWSERLESS_API_KEY")
 HF_API_KEY = os.environ.get("HF_API_KEY")
 DEFAULT_DEBUG = True
@@ -186,7 +187,7 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
- 
+
 
 
 
