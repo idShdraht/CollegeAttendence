@@ -18,7 +18,6 @@ from io import BytesIO
 
 # ---------- CONFIG ----------
 AIMS_BASE_URL = "https://aims.rkmvc.ac.in"
-# --- SECURITY UPGRADE: Keys are now read from the server's secure environment ---
 BROWSERLESS_API_KEY = os.environ.get("BROWSERLESS_API_KEY")
 HF_API_KEY = os.environ.get("HF_API_KEY")
 DEFAULT_DEBUG = True
@@ -43,18 +42,20 @@ def internal_server_error(e):
     return jsonify(error="J.A.R.V.I.S. Core Systems Failure: A critical, unhandled error occurred."), 500
 
 def get_remote_browser():
-    """Connects to the Browserless.io remote fleet."""
-    if not BROWSERLESS_API_KEY:
-        raise ValueError("Browserless.io API Key is not configured on the server.")
-    
+    """Connects to the Browserless.io remote fleet (HTTPS endpoint)."""
     print("J.A.R.V.I.S. LOG: Connecting to Sentinel browser fleet...")
     options = webdriver.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
     options.add_argument("--headless=new")
-    
+
     endpoint = f'https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
-    driver = webdriver.Remote(command_executor=endpoint, options=options)
+
+    driver = webdriver.Remote(
+        command_executor=endpoint,
+        options=options
+    )
     print("J.A.R.V.I.S. LOG: Connection established.")
     return driver
 
@@ -70,7 +71,16 @@ def preprocess_captcha(image_bytes, debug=DEFAULT_DEBUG):
     pil_img = Image.fromarray(thresh)
     buf = BytesIO()
     pil_img.save(buf, format="PNG")
-    return buf.getvalue()
+    processed_bytes = buf.getvalue()
+
+    if debug and os.access('.', os.W_OK):
+        try:
+            pil_img.save("debug_captcha.png")
+            print("J.A.R.V.I.S. DEBUG: Preprocessed captcha saved as debug_captcha.png")
+        except Exception:
+            pass
+
+    return processed_bytes
 
 def solve_captcha_with_service(image_bytes, debug=DEFAULT_DEBUG):
     """Sends a preprocessed captcha to a Hugging Face model for solving."""
@@ -187,6 +197,7 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
+
 
 
 
