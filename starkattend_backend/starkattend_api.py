@@ -31,7 +31,7 @@ app.secret_key = 'jarvis-secret-key-for-sentinel'
 # --- CORS (allow frontend + localhost for dev) ---
 CORS(app, resources={
     r"/api/*": {"origins": [
-        "https://astounding-creponne-c164b9.netlify.app",
+        "https://admirable-narwhal-ef8182.netlify.app",
         "http://localhost:3000"
     ]}
 })
@@ -190,3 +190,4 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
+
