@@ -31,7 +31,7 @@ app.secret_key = 'jarvis-secret-key-for-sentinel'
 # --- DEFINITIVE CORS CONFIGURATION ---
 # This explicitly tells the server to trust your live frontend application.
 origins = [
-    "https://astounding-creponne-c164b9.netlify.app",
+    "https://admirable-narwhal-ef8182.netlify.app",
     "http://localhost:3000", # For any future local testing
 ]
 CORS(app, supports_credentials=True, origins=origins)
@@ -200,3 +200,4 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
+
