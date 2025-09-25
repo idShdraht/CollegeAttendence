@@ -4,7 +4,7 @@ selenium==4.15.0
 beautifulsoup4
 requests
 gunicorn
+websocket-client
 opencv-python-headless
 numpy
 Pillow
-websocket-client
