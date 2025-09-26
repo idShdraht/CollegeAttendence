@@ -28,13 +28,13 @@ print("J.A.R.V.I.S. Sentinel Engine: Initializing...")
 app = Flask(__name__)
 app.secret_key = 'jarvis-secret-key-for-sentinel'
 
-# --- CORS (allow frontend + localhost for dev) ---
-CORS(app, resources={
-    r"/api/*": {"origins": [
-        "https://admirable-narwhal-ef8182.netlify.app",
-        "http://localhost:3000"
-    ]}
-})
+# --- DEFINITIVE CORS CONFIGURATION ---
+# This explicitly tells the server to trust your live frontend application.
+origins = [
+    "https://admirable-narwhal-ef8182.netlify.app",
+    "http://localhost:3000", # For any future local testing
+]
+CORS(app, supports_credentials=True, origins=origins)
 
 @app.errorhandler(500)
 def internal_server_error(e):
@@ -45,13 +45,14 @@ def get_remote_browser():
     """Connects to the Browserless.io remote fleet (HTTPS endpoint)."""
     if not BROWSERLESS_API_KEY:
         raise ValueError("Browserless.io API Key is not configured on the server.")
+    
     print("J.A.R.V.I.S. LOG: Connecting to Sentinel browser fleet...")
     options = webdriver.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
     options.add_argument("--headless=new")
 
-    # --- DEFINITIVE FIX: Use the HTTPS endpoint for the command executor ---
     endpoint = f'https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
 
     driver = webdriver.Remote(
@@ -73,7 +74,16 @@ def preprocess_captcha(image_bytes, debug=DEFAULT_DEBUG):
     pil_img = Image.fromarray(thresh)
     buf = BytesIO()
     pil_img.save(buf, format="PNG")
-    return buf.getvalue()
+    processed_bytes = buf.getvalue()
+
+    if debug and os.access('.', os.W_OK):
+        try:
+            pil_img.save("debug_captcha.png")
+            print("J.A.R.V.I.S. DEBUG: Preprocessed captcha saved as debug_captcha.png")
+        except Exception:
+            pass
+
+    return processed_bytes
 
 def solve_captcha_with_service(image_bytes, debug=DEFAULT_DEBUG):
     """Sends a preprocessed captcha to a Hugging Face model for solving."""
@@ -190,4 +200,3 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
-
