@@ -18,8 +18,8 @@ from io import BytesIO
 
 # ---------- CONFIG ----------
 AIMS_BASE_URL = "https://aims.rkmvc.ac.in"
-BROWSERLESS_API_KEY = "2T04KUPWyHqoQsb254cabf9969a21ff868ac5eb097bc906c9"
-HF_API_KEY = "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"
+BROWSERLESS_API_KEY = os.environ.get("BROWSERLESS_API_KEY")
+HF_API_KEY = os.environ.get("HF_API_KEY")
 DEFAULT_DEBUG = True
 # ----------------------------
 
@@ -27,23 +27,36 @@ print("J.A.R.V.I.S. Sentinel Engine: Initializing...")
 
 app = Flask(__name__)
 app.secret_key = 'jarvis-secret-key-for-sentinel'
-CORS(app, supports_credentials=True, origins=["*"])
+
+# --- CORS (allow frontend + localhost for dev) ---
+CORS(app, resources={
+    r"/api/*": {"origins": [
+        "https://admirable-narwhal-ef8182.netlify.app",      # Your production Netlify URL
+        "http://localhost:3000"              # For local development
+    ]}
+})
+
+# --- Health check route ---
+@app.route("/", methods=["GET"])
+def health_check():
+    return jsonify(status="online", message="J.A.R.V.I.S. Engine is running 🚀"), 200
 
 @app.errorhandler(500)
 def internal_server_error(e):
     traceback.print_exc()
     return jsonify(error="J.A.R.V.I.S. Core Systems Failure: A critical, unhandled error occurred."), 500
 
+# ---------- Browserless Remote Driver ----------
 def get_remote_browser():
     """Connects to the Browserless.io remote fleet (HTTPS endpoint)."""
     print("J.A.R.V.I.S. LOG: Connecting to Sentinel browser fleet...")
     options = webdriver.ChromeOptions()
+    options.add_argument("--headless=new")
+    options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--headless=new")
 
-    endpoint = f'https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
+    endpoint = f"https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}"
 
     driver = webdriver.Remote(
         command_executor=endpoint,
@@ -52,8 +65,12 @@ def get_remote_browser():
     print("J.A.R.V.I.S. LOG: Connection established.")
     return driver
 
+# ---------- Captcha Handling ----------
 def preprocess_captcha(image_bytes, debug=DEFAULT_DEBUG):
-    """Preprocesses image bytes for the AI model."""
+    import numpy as np, cv2
+    from PIL import Image
+    from io import BytesIO
+
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is None:
@@ -61,31 +78,20 @@ def preprocess_captcha(image_bytes, debug=DEFAULT_DEBUG):
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
     pil_img = Image.fromarray(thresh)
     buf = BytesIO()
     pil_img.save(buf, format="PNG")
-    processed_bytes = buf.getvalue()
-
-    if debug and os.access('.', os.W_OK):
-        try:
-            pil_img.save("debug_captcha.png")
-            print("J.A.R.V.I.S. DEBUG: Preprocessed captcha saved as debug_captcha.png")
-        except Exception:
-            pass
-
-    return processed_bytes
+    return buf.getvalue()
 
 def solve_captcha_with_service(image_bytes, debug=DEFAULT_DEBUG):
-    """Sends a preprocessed captcha to a Hugging Face model for solving."""
-    print("J.A.R.V.I.S. LOG: Preprocessing captcha image...")
+    if not HF_API_KEY:
+        raise ValueError("Hugging Face API Key is not configured on the server.")
+
     processed_bytes = preprocess_captcha(image_bytes, debug=debug)
     image_b64 = base64.b64encode(processed_bytes).decode("utf-8")
 
-    prompt = (
-        "Solve the captcha in this image. "
-        "Just tell the solution for the captcha, no other words, no explanation."
-    )
-
+    prompt = "Solve the captcha in this image. Just tell the solution for the captcha, no other words, no explanation."
     payload = {
         "inputs": {
             "messages": [
@@ -95,84 +101,52 @@ def solve_captcha_with_service(image_bytes, debug=DEFAULT_DEBUG):
             ]
         }
     }
+    headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
 
-    headers = {
-        "Authorization": f"Bearer {HF_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    print("J.A.R.V.I.S. LOG: Sending captcha to LLM via Hugging Face inference...")
     try:
-        resp = requests.post(
-            "https://api-inference.huggingface.co/v1/chat/completions",
-            headers=headers,
-            data=json.dumps(payload),
-            timeout=30
-        )
+        resp = requests.post("https://api-inference.huggingface.co/v1/chat/completions",
+                             headers=headers, data=json.dumps(payload), timeout=30)
         resp.raise_for_status()
         result = resp.json()
-
         captcha_text = (result.get("choices")[0].get("message").get("content")).strip()
-        if not captcha_text:
-            raise RuntimeError(f"Could not parse LLM response for captcha. Full response: {result}")
-
-        captcha_text = captcha_text.splitlines()[0].strip()
-        print(f"J.A.R.V.I.S. LOG: Captcha solved as '{captcha_text}'")
-        return captcha_text
-
+        return captcha_text.splitlines()[0].strip()
     except Exception as e:
-        print("J.A.R.V.I.S. ERROR: Failed to solve captcha with LLM.")
         traceback.print_exc()
         raise RuntimeError("Captcha solving with LLM failed.") from e
 
+# ---------- Helpers ----------
 def js_set_value_and_dispatch(driver, element, value):
-    """Sets an element's value via JS to mimic user input."""
-    set_value_script = """
-    (el, val) => {
-        el.focus();
-        el.value = val;
-        el.dispatchEvent(new Event('input', { bubbles: true}));
-        el.dispatchEvent(new Event('change', { bubbles: true}));
-    }
-    """
-    driver.execute_script(set_value_script, element, value)
+    script = "(el, val) => { el.focus(); el.value = val; el.dispatchEvent(new Event('input', { bubbles: true})); el.dispatchEvent(new Event('change', { bubbles: true})); }"
+    driver.execute_script(script, element, value)
 
+# ---------- API ----------
 @app.route('/api/scrape', methods=['POST'])
 def scrape_data():
-    """Main endpoint for the automated scraping process."""
     driver = None
     try:
         payload = request.get_json(force=True)
-        roll_no = payload.get('rollNo')
-        password = payload.get('password')
-        debug = payload.get('debug', DEFAULT_DEBUG)
-
+        roll_no, password = payload.get('rollNo'), payload.get('password')
         if not roll_no or not password:
             return jsonify({"error": "rollNo and password are required."}), 400
 
         driver = get_remote_browser()
-        print(f"J.A.R.V.I.S. LOG: Beginning automated login for {roll_no}.")
         driver.get(f"{AIMS_BASE_URL}/student/loginPage")
         wait = WebDriverWait(driver, 20)
 
         student_no_el = wait.until(EC.presence_of_element_located((By.NAME, "studentNo")))
         password_el = wait.until(EC.presence_of_element_located((By.NAME, "password")))
         captcha_el = wait.until(EC.presence_of_element_located((By.XPATH, "//img[contains(@src, 'captcha')]")))
-        
+
         js_set_value_and_dispatch(driver, student_no_el, roll_no)
         js_set_value_and_dispatch(driver, password_el, password)
-        
-        image_bytes = captcha_el.screenshot_as_png
-        captcha_solution = solve_captcha_with_service(image_bytes, debug=debug)
-        
+
+        captcha_solution = solve_captcha_with_service(captcha_el.screenshot_as_png())
         captcha_input_el = driver.find_element(By.NAME, 'captcha')
         js_set_value_and_dispatch(driver, captcha_input_el, captcha_solution)
-        
+
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
-        
         WebDriverWait(driver, 12).until(EC.url_contains("dashboard"))
-        
-        print("J.A.R.V.I.S. LOG: Login successful; extracting data.")
+
         driver.get(f"{AIMS_BASE_URL}/student/AttndReport")
         WebDriverWait(driver, 12).until(EC.presence_of_element_located((By.CSS_SELECTOR, "table.table-bordered")))
         attendance_html = driver.page_source
@@ -181,42 +155,47 @@ def scrape_data():
         WebDriverWait(driver, 12).until(EC.presence_of_element_located((By.CSS_SELECTOR, "table.table-bordered")))
         timetable_html = driver.page_source
 
-        full_data = {
+        return jsonify({
             "attendanceData": parse_attendance_data(attendance_html, roll_no),
             "timetableData": parse_timetable_data(timetable_html)
-        }
-        return jsonify(full_data)
+        })
 
     except Exception as e:
-        print("--- UNEXPECTED SENTINEL ENGINE ERROR ---")
         traceback.print_exc()
-        return jsonify({"error": "An unexpected error occurred on the backend.", "detail": str(e)}), 500
+        return jsonify({"error": "Backend error", "detail": str(e)}), 500
     finally:
         if driver:
             try: driver.quit()
             except Exception: pass
 
+# ---------- Parsers ----------
 def parse_attendance_data(html_content, roll_no):
     soup = BeautifulSoup(html_content, 'html.parser')
-    subjects = []; total_held_hours = 0; total_attended_hours = 0
+    subjects = []
+    total_held_hours, total_attended_hours = 0, 0
     table = soup.find('table', class_='table-bordered')
-    if not table or not table.tbody: raise ValueError("Could not find attendance table.")
+    if not table or not table.tbody:
+        raise ValueError("Could not find attendance table.")
     for row in table.tbody.find_all('tr'):
         cols = row.find_all('td')
         if len(cols) > 7:
             try:
-                held = float(cols[6].text.strip()); attended = float(cols[7].text.strip())
+                held = float(cols[6].text.strip())
+                attended = float(cols[7].text.strip())
                 subjects.append({"name": cols[2].text.strip(), "held": held, "attended": attended})
-                total_held_hours += held; total_attended_hours += attended
-            except (ValueError, IndexError): continue
+                total_held_hours += held
+                total_attended_hours += attended
+            except (ValueError, IndexError):
+                continue
     percent = (total_attended_hours / total_held_hours) * 100 if total_held_hours > 0 else 0
-    return { "rollNo": roll_no, "overallAttendance": round(percent, 2), "subjects": subjects }
+    return {"rollNo": roll_no, "overallAttendance": round(percent, 2), "subjects": subjects}
 
 def parse_timetable_data(html_content):
     soup = BeautifulSoup(html_content, 'html.parser')
     timetable = {"headers": [], "rows": []}
     table = soup.find('table', class_='table-bordered')
-    if not table: return timetable
+    if not table:
+        return timetable
     if table.thead and table.thead.tr:
         for th in table.thead.tr.find_all('th'):
             timetable["headers"].append(th.text.strip())
@@ -225,4 +204,9 @@ def parse_timetable_data(html_content):
             timetable["rows"].append([' '.join(td.stripped_strings) or "---" for td in row.find_all('td')])
     return timetable
 
+# ---------- ENTRYPOINT ----------
 application = app
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
