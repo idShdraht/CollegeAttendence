@@ -14,10 +14,3 @@ EXPOSE 10000
 
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
 
-
-
-# Expose the port the engine will run on
-EXPOSE 10000
-
-# The definitive ignition sequence for your engine
-CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
