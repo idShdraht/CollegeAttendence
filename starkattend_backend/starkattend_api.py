@@ -50,9 +50,9 @@ def get_remote_browser():
     options = webdriver.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
     options.add_argument("--headless=new")
 
-    # --- DEFINITIVE FIX: Use the HTTPS endpoint for the command executor ---
     endpoint = f'https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
 
     driver = webdriver.Remote(
@@ -200,3 +200,4 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
+
