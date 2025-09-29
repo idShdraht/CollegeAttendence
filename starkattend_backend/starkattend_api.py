@@ -200,4 +200,3 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
-
