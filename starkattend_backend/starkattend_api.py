@@ -29,11 +29,10 @@ app = Flask(__name__)
 app.secret_key = 'jarvis-secret-key-for-sentinel'
 
 # --- DEFINITIVE CORS CONFIGURATION ---
-# This explicitly tells the server to trust your live frontend applications.
+# This explicitly tells the server to trust your live frontend application.
 origins = [
-    "https://astounding-creponne-c164b9.netlify.app",
     "https://admirable-narwhal-ef8182.netlify.app",
-    "http://localhost:3000" # For any future local testing
+    "http://localhost:3000", # For any future local testing
 ]
 CORS(app, supports_credentials=True, origins=origins)
 
@@ -54,7 +53,6 @@ def get_remote_browser():
     options.add_argument("--disable-gpu")
     options.add_argument("--headless=new")
 
-    # --- DEFINITIVE FIX: Use the correct HTTPS endpoint for the command executor ---
     endpoint = f'https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
 
     driver = webdriver.Remote(
@@ -202,4 +200,3 @@ def parse_timetable_data(html_content):
     return timetable
 
 application = app
-
