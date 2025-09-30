@@ -32,6 +32,7 @@ app.secret_key = 'jarvis-secret-key-for-sentinel'
 # This explicitly tells the server to trust your live frontend application.
 origins = [
     "https://admirable-narwhal-ef8182.netlify.app",
+    "https://astounding-creponne-c164b9.netlify.app",
     "http://localhost:3000", # For any future local testing
 ]
 CORS(app, supports_credentials=True, origins=origins)
@@ -50,9 +51,9 @@ def get_remote_browser():
     options = webdriver.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
     options.add_argument("--headless=new")
 
+    # --- DEFINITIVE FIX: Use the correct HTTPS endpoint for the command executor ---
     endpoint = f'https://chrome.browserless.io/webdriver?token={BROWSERLESS_API_KEY}'
 
     driver = webdriver.Remote(
